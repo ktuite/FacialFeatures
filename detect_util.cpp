@@ -5,7 +5,11 @@
 #include <algorithm>
 #include <iterator>
 #include <cmath>
-#include "face_feature_detect.hpp"
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/gpu/gpu.hpp>
+#include "detect_util.hpp"
 #include "svm.h"
 
 #define PI 3.1415926536
@@ -13,12 +17,7 @@
 using namespace std;
 using namespace cv;
 
-FaceFeature::FaceFeature(string configFile) {
-  model = NULL;
-  loadConfigFile(configFile);
-}
-
-void FaceFeature::extract_line(const string& line, vector<float>& values) {
+void extract_line(const string& line, vector<float>& values) {
   vector<string> tokens;
   istringstream iss(line);
   tokens.clear();
@@ -31,71 +30,35 @@ void FaceFeature::extract_line(const string& line, vector<float>& values) {
     values.push_back(atof(tokens[i].c_str()));
 }
 
-void FaceFeature::loadConfigFile(string path) {
+void loadPointsFile(string path, vector<pair<Point2f, Point2f> > & canonicalPoints) {
   canonicalPoints.clear();
   ifstream fi(path.c_str(), ifstream::in);
   string line, x, y;
   int num;
-  getline(fi, line);
-  getline(fi, line);
-  num = atoi(line.c_str());
-  getline(fi, line);
-  for (int i = 0; i < num; i++) {
+  vector<Point2f> tmp;
+  for (int i = 0; i < 10; i++) {
     getline(fi, line);
     stringstream linestream(line);
     getline(linestream, x, ' ');
     getline(linestream, y);
-    canonicalPoints.push_back(Point2f(atof(x.c_str()), atof(y.c_str())));
+    tmp.push_back(Point2f(atof(x.c_str()), atof(y.c_str())));
   }
-  getline(fi, line);
-  getline(fi, line);
-  stringstream line1(line);
-  getline(line1, x, ' ');
-  getline(line1, y);
-  roi.x = atoi(x.c_str());
-  roi.y = atoi(y.c_str());
-  getline(fi, line);
-  getline(fi, line);
-  stringstream line2(line);
-  getline(line2, x, ' ');
-  getline(line2, y);
-  roi.width = atoi(x.c_str());
-  roi.height = atoi(y.c_str());
-
-  getline(fi, line);
-  getline(fi, line);
-  ms_file = line;
-  ifstream ms(line.c_str(), ifstream::in);
-  mean.clear();
-  stddev.clear();
-  extract_line(line, mean);
-
-  getline(ms, line);
-  extract_line(line, stddev);
+  Point2f gl((tmp[0].x + tmp[1].x) / 2.0,
+            (tmp[0].y + tmp[1].y) / 2.0);
+  Point2f gr((tmp[6].x + tmp[7].x) / 2.0,
+            (tmp[6].y + tmp[7].y) / 2.0);
+  canonicalPoints.push_back(make_pair(gl, gr));
+  canonicalPoints.push_back(make_pair(tmp[2], tmp[3]));
 }
 
-void FaceFeature::extract_glasses(const Mat & image, Mat & img_glasses) {
-  if (image.data == NULL) {
-    cerr << "The image is invalid to be warped" << endl;
-    return;
-  }
-
-//  string img_save_path = "result" + url.substr(9, url.size() - 9);
-//  imwrite(img_save_path.c_str(), warped);
-  img_glasses = image(roi);
-//  cout << "extracted glass area of " << url << endl;
-}
-
-void FaceFeature::align(Mat & image, const vector<Point2f> & detectedPoints) {
+void align(const Mat & src, Mat & dst, pair<Point2f, Point2f> & points) {
   if (image.data == NULL) {
     cerr << "The image is invalid to be aligned" << endl;
     return;
   }
 
-  Point2f l((detectedPoints[0].x + detectedPoints[1].x) / 2.0,
-            (detectedPoints[0].y + detectedPoints[1].y) / 2.0);
-  Point2f r((detectedPoints[6].x + detectedPoints[7].x) / 2.0,
-            (detectedPoints[6].y + detectedPoints[7].y) / 2.0);
+  Point2f l = points.first;
+  Point2f r = points.second;
 
   double theta = atan2(r.y - l.y, r.x - l.x);
   theta = theta / PI * 180;
@@ -105,41 +68,38 @@ void FaceFeature::align(Mat & image, const vector<Point2f> & detectedPoints) {
   double dist = sqrt((l.x - r.x) * (l.x - r.x) + (l.y - r.y) * (l.y - r.y));
   double delta = 40 / dist;
   resize(dst, dst, Size(dst.cols * delta, dst.rows * delta));
-  image = dst(Rect(l.x * delta - 20, l.y * delta - 20, 80, 40));
+  dst = dst(Rect(l.x * delta - 20, l.y * delta - 20, 80, 40));
 }
 
-void FaceFeature::compute_hog(vector<string> & urls, vector<vector<float> >& features) {
+void compute_hog(const vector<string> & urls, vector<vector<float> > & features, vector<float> & labels, float label) {
   HOGDescriptor hog(Size(80, 40), Size(16, 16), Size(8, 8), Size(2, 2),
 		    9, -1, 0.2, true, 64);
 
-  vector<string> new_urls;
-  new_urls.clear();
+  vector<Point> locations;
   for (unsigned int i = 0; i < urls.size(); i++) {
     vector<float> featureVector;
     Mat img;
     img = imread(urls[i].c_str(), 1);
-    if (img.channels() == 3)
-      cvtColor(img, img, CV_BGR2GRAY);
+
+    // I do not think I have to convert the image to
+    // gray scale to compute the hog feauture
+    // if (img.channels() == 3)
+    // cvtColor(img, img, CV_BGR2GRAY);
     if (img.data == NULL)
       continue;
 
-    compute_hog(hog, img, featureVector, urls[i]);
+    assert(img.cols == hog.winSize.width);
+    assert(img.rows == hog.winSize.height);
+    hog.compute(img, featureVector, Size(4, 4), Size(0, 0), locations);
     if (!featureVector.empty()) {
-      new_urls.push_back(urls[i]);
       features.push_back(featureVector);
+      labels.push_back(label);
     }
   }
-  urls = new_urls;
 }
 
-void FaceFeature::compute_hog(const HOGDescriptor& hog, const Mat& img, vector<float>& feature, string url) {
-  assert(img.cols == hog.winSize.width);
-  assert(img.rows == hog.winSize.height);
-  vector<Point> locations;
-  hog.compute(img, feature, Size(4, 4), Size(0, 0), locations);
-}
-
-void FaceFeature::getUrls(const string& path, vector<string>& urls) {
+void get_urls(const string & path, vector<string> & urls) {
+  urls.clear();
   ifstream fi(path.c_str(), ifstream::in);
   string line;
   while (getline(fi, line))
@@ -147,7 +107,7 @@ void FaceFeature::getUrls(const string& path, vector<string>& urls) {
   fi.close();
 }
 
-void FaceFeature::mean_stddev(vector<vector<float> >& features) {
+void standardize(vector<vector<float> > & features, vector<float> & mean, vector<float> & stddev) {
   unsigned int i, j;
   unsigned int num_features = features[0].size();
   cout << "size of features:  "  << num_features << endl;
@@ -187,8 +147,9 @@ void FaceFeature::mean_stddev(vector<vector<float> >& features) {
 	features[j][i] = (features[j][i] - mean[i]) / (2 * stddev[i]);
 }
 
-void FaceFeature::train(vector<vector<float> >& features, vector<float>& labels, string& save_path) {
-  mean_stddev(features);
+void train(vector<vector<float> >& features, vector<float>& labels, string & save_dir) {
+  vector<float> mean, stddev;
+  standardize(featuresm, mean, stddev);
   svm_parameter param;
   param.svm_type = C_SVC;
   param.kernel_type = LINEAR;
@@ -250,30 +211,21 @@ void FaceFeature::train(vector<vector<float> >& features, vector<float>& labels,
   cout << "Finished Train" << endl;
 }
 
-void FaceFeature::train_data(string positive_urls, string negative_urls, string save_path) {
-  vector<vector<float> > features;
-  vector<float> labels;
+void retrieve_data(string p_file, string n_file, vector<vector<float> > & features, vector<float> & labels) {
+  features.clear();
+  labels.clear();
   vector<string> images;
 
-  getUrls(positive_urls, images);
-  compute_hog(images, features);
-  int p = (int)features.size();
-  for (int i = 0; i < p; i++)
-    labels.push_back(1);
+  get_urls(positive_urls, images);
+  compute_hog(images, features, labels, 1);
 
-  images.clear();
-  getUrls(negative_urls, images);
-  compute_hog(images, features);
-  int n = (int)features.size() - p;
-  for (int i = 0; i < n; i++)
-    labels.push_back(-1);
-
-  cout << "train : computed hog  " << positive_urls << "   " << negative_urls << endl;
+  get_urls(negative_urls, images);
+  compute_hog(images, features, labels, -1);
   
-  train(features, labels, save_path);
+  cout << "retrieved data  " << positive_urls << "   " << negative_urls << endl;
 }
 
-double FaceFeature::predict_img(string model_url, const Mat& img) {
+double predict_img(string model_url, const Mat& img) {
   vector<float> feature;
   HOGDescriptor hog(Size(80, 40), Size(16, 16), Size(8, 8), Size(8, 8),
 		    9, -1, 0.2, true, 64);
@@ -293,10 +245,10 @@ double FaceFeature::predict_img(string model_url, const Mat& img) {
   return svm_predict(model, tmp);
 }
 
-void FaceFeature::compute_hogimg(string positive_urls, string negative_urls) {
+void compute_hogimg(string positive_urls, string negative_urls) {
   vector<vector<float> > features;
   vector<string> images;
-  getUrls(positive_urls, images);
+  get_urls(positive_urls, images);
   compute_hog(images, features);
   for (unsigned int i = 0; i < images.size(); i++) {
     ostringstream buffer(ostringstream::out);
@@ -310,7 +262,7 @@ void FaceFeature::compute_hogimg(string positive_urls, string negative_urls) {
   
   images.clear();
   features.clear();
-  getUrls(negative_urls, images);
+  get_urls(negative_urls, images);
   compute_hog(images, features);
   for (unsigned int i = 0; i < images.size(); i++) {
     ostringstream buffer(ostringstream::out);
@@ -324,7 +276,7 @@ void FaceFeature::compute_hogimg(string positive_urls, string negative_urls) {
 }
 
 // this function from here: http://www.juergenwiki.de/work/wiki/doku.php?id=public%3ahog_descriptor_computation_and_visualization
-Mat FaceFeature::get_hogdescriptor_visu(Mat& origImg, vector<float> descriptorValues)
+Mat get_hogdescriptor_visu(Mat& origImg, vector<float> descriptorValues)
 {   
   Mat color_origImg = origImg;
   //cvtColor(origImg, color_origImg, CV_GRAY2RGBA);

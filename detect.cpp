@@ -18,7 +18,6 @@ int main(int argc, char** argv) {
     ff.train_data(argv[2], argv[3], argv[4]);
   } else if (strcmp(argv[1], "-p") == 0) {
     Mat image = imread(argv[3], 1);
-    Mat img_glasses;
     if (argc == 5) {
       vector<Point2f> detectedPoints;
       detectedPoints.clear();
@@ -34,8 +33,7 @@ int main(int argc, char** argv) {
       ff.align(image, detectedPoints);
       imwrite("test_aligned.jpg", image);
     }
-    ff.extract_glasses(image, img_glasses);
-    double result = ff.predict_img(argv[2], img_glasses);
+    double result = ff.predict_img(argv[2], image);
     cout << (int)result << endl;
   } else if (strcmp(argv[1], "-h") == 0) {
     ff.compute_hogimg(argv[2], argv[3]);
