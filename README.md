@@ -2,24 +2,20 @@ FacialFeatures
 ==============
 
 1. run "make" to compile the codes <br />
-2. there are three modes for FaceFeatureDetect:
+2. there are two modes for FaceFeatureDetect:
 
    	 # Train new data <br />
-   	 ./FaceFeatureDetect -t <positive_urls> <negative_urls> <model_save_path>
+   	 ./FaceFeatureDetect -t <positive_urls> <negative_urls> <model_save_directory>
 
 	 # Predict a well aligned and cropped image <br />
-	 ./FaceFeatureDetect -p <model_path> <image_path>
-
-	 # Predict a image with its fiducial points <br />
-	 ./FaceFeatureDetect -p <model_path> <image_path> <points_path>
+	 ./FaceFeatureDetect -p  <hog_path> <model_directory>
 
 
-I got a sample for running the second predict mode, feel free to try it: <br />
-  ./FaceFeatureDetect -p ./data/model.t ./data/test.jpg ./data/points.txt
+I got two sample for running the second predict mode, feel free to try it: <br />
+  ./FaceFeatureDetect -t ./positive_hog.txt ./negative_hog.txt ./glasses
+  ./FaceFeatureDetect -p ./test.txt ./glasses
 
 NOTE: <br />
-	1. The train mode will not output anything. The images used to train must be already aligned and cropped <br />
-	2. The standard fiducial points with size 500 by 500 is stored in ./data/config_canonical.txt under "____all the canonical points on the face", we can change it appropriately <br />
-	3. The file containing the mean and stddev information of trained data is stored in ./data/config_canonical.txt under "____the file that contains mean and stddev values for current svm model", we can change it appropriately <br />
-	4. I have include in a pre-trained data stored in ./data/model.t <br />
+	1. The train mode will not output anything. <br />
+	2. The predict model will output a single number for the predicted label <br />
 
