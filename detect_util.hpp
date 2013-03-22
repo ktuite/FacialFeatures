@@ -18,7 +18,7 @@ void align(const Mat & src, Mat & dst, pair<Point2f, Point2f> & points);
 
 void retrieve_data(string positive_urls, string negative_urls, vector<vector<float> > & features, vector<float> & labels);
 
-double predict_img(string model_url, const Mat& img);
+double predict_hog(string path, string model_dir);
 
 void compute_hogimg(string positive_urls, string negative_urls);
 
@@ -26,7 +26,7 @@ void get_urls(const string& path, vector<string>& urls);
 
 void compute_hog(const vector<string>& urls, vector<vector<float> >& features);
 
-void train(vector<vector<float> >& features, vector<float>& labels, string& save_path);
+void train(vector<vector<float> > & features, vector<float> & labels, string & save_dir);
 
 void mean_stddev(vector<vector<float> >& features);
 

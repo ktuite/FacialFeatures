@@ -9,6 +9,9 @@
 #include <opencv2/objdetect/objdetect.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/gpu/gpu.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem.hpp>
 #include "detect_util.hpp"
 #include "svm.h"
 
@@ -16,6 +19,7 @@
 
 using namespace std;
 using namespace cv;
+namespace fs = boost::filesystem;
 
 void extract_line(const string& line, vector<float>& values) {
   vector<string> tokens;
@@ -34,7 +38,6 @@ void loadPointsFile(string path, vector<pair<Point2f, Point2f> > & canonicalPoin
   canonicalPoints.clear();
   ifstream fi(path.c_str(), ifstream::in);
   string line, x, y;
-  int num;
   vector<Point2f> tmp;
   for (int i = 0; i < 10; i++) {
     getline(fi, line);
@@ -52,7 +55,7 @@ void loadPointsFile(string path, vector<pair<Point2f, Point2f> > & canonicalPoin
 }
 
 void align(const Mat & src, Mat & dst, pair<Point2f, Point2f> & points) {
-  if (image.data == NULL) {
+  if (src.data == NULL) {
     cerr << "The image is invalid to be aligned" << endl;
     return;
   }
@@ -63,8 +66,7 @@ void align(const Mat & src, Mat & dst, pair<Point2f, Point2f> & points) {
   double theta = atan2(r.y - l.y, r.x - l.x);
   theta = theta / PI * 180;
   Mat rot_mat = getRotationMatrix2D(l, theta, 1.0);
-  Mat dst;
-  warpAffine(image, dst, rot_mat, image.size());
+  warpAffine(src, dst, rot_mat, src.size());
   double dist = sqrt((l.x - r.x) * (l.x - r.x) + (l.y - r.y) * (l.y - r.y));
   double delta = 40 / dist;
   resize(dst, dst, Size(dst.cols * delta, dst.rows * delta));
@@ -148,8 +150,15 @@ void standardize(vector<vector<float> > & features, vector<float> & mean, vector
 }
 
 void train(vector<vector<float> >& features, vector<float>& labels, string & save_dir) {
+  fs::path path(fs::current_path());
+  path /= save_dir;
+  if (!fs::exists(path)) {
+    fs::create_directory(path);
+  }
+  string model_file = (path / "model.t").string();
+  string ms_file = (path / "ms_file.txt").string();
   vector<float> mean, stddev;
-  standardize(featuresm, mean, stddev);
+  standardize(features, mean, stddev);
   svm_parameter param;
   param.svm_type = C_SVC;
   param.kernel_type = LINEAR;
@@ -185,11 +194,11 @@ void train(vector<vector<float> >& features, vector<float>& labels, string & sav
 
   cout << "svm_parameter and svm_problem are computed" << endl;
 
-  model = svm_train(&prob, &param);
+  svm_model * model = svm_train(&prob, &param);
   cout << "nr_class " << model->nr_class << endl;
   cout << "total #SV " << model->l << endl;
 
-  svm_save_model(save_path.c_str(), model);
+  svm_save_model(model_file.c_str(), model);
 
   cout << "saved model" << endl;
 
@@ -216,30 +225,38 @@ void retrieve_data(string p_file, string n_file, vector<vector<float> > & featur
   labels.clear();
   vector<string> images;
 
-  get_urls(positive_urls, images);
+  get_urls(p_file, images);
   compute_hog(images, features, labels, 1);
 
-  get_urls(negative_urls, images);
+  get_urls(n_file, images);
   compute_hog(images, features, labels, -1);
-  
-  cout << "retrieved data  " << positive_urls << "   " << negative_urls << endl;
 }
 
-double predict_img(string model_url, const Mat& img) {
-  vector<float> feature;
-  HOGDescriptor hog(Size(80, 40), Size(16, 16), Size(8, 8), Size(8, 8),
-		    9, -1, 0.2, true, 64);
-  compute_hog(hog, img, feature, "test");
-  model = svm_load_model(model_url.c_str());
+double predict_hog(string hog_path, string model_dir) {
+  fs::path path(fs::current_path());
+  path /= model_dir;
+  string model_file = (path / "model.t").string();
+  string ms_file = (path / "ms_file.txt").string();
+  vector<float> feature, mean, stddev;
+  string line;
+  ifstream fi(hog_path.c_str(), ifstream::in);
+  getline(fi, line);
+  extract_line(line, feature);
+  ifstream fms(ms_file.c_str(), ifstream::in);
+  getline(fms, line);
+  extract_line(line, mean);
+  getline(fms, line);
+  extract_line(line, stddev);
+
+  svm_model * model = svm_load_model(model_file.c_str());
   for (unsigned int i = 0; i < feature.size(); i++) {
     if (stddev[i] != 0)
       feature[i] = (feature[i] - mean[i]) / (2 * stddev[i]);
   }
-  svm_node* tmp = new svm_node[feature.size() + 1];
+  svm_node * tmp = new svm_node[feature.size() + 1];
   for (unsigned int i = 0; i < feature.size(); i++) {
     tmp[i].index = (int)i + 1;
     tmp[i].value = (double)(feature[i]);
-      
   }
   tmp[feature.size()].index = -1;
   return svm_predict(model, tmp);
