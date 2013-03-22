@@ -149,7 +149,7 @@ void standardize(vector<vector<float> > & features, vector<float> & mean, vector
 	features[j][i] = (features[j][i] - mean[i]) / (2 * stddev[i]);
 }
 
-void train(vector<vector<float> >& features, vector<float>& labels, string & save_dir) {
+void train(vector<vector<float> >& features, vector<float>& labels, string save_dir) {
   fs::path path(fs::current_path());
   path /= save_dir;
   if (!fs::exists(path)) {
@@ -262,6 +262,7 @@ double predict_hog(string hog_path, string model_dir) {
   return svm_predict(model, tmp);
 }
 
+/**
 void compute_hogimg(string positive_urls, string negative_urls) {
   vector<vector<float> > features;
   vector<string> images;
@@ -454,3 +455,4 @@ Mat get_hogdescriptor_visu(Mat& origImg, vector<float> descriptorValues)
   return visu;
  
 } // get_hogdescriptor_visu
+*/

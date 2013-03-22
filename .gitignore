@@ -14,3 +14,6 @@
 
 # Images
 *.jpg
+
+# The executeble
+FaceFeatureDetect

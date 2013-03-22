@@ -20,16 +20,18 @@ void retrieve_data(string positive_urls, string negative_urls, vector<vector<flo
 
 double predict_hog(string path, string model_dir);
 
-void compute_hogimg(string positive_urls, string negative_urls);
+//void compute_hogimg(string positive_urls, string negative_urls);
 
 void get_urls(const string& path, vector<string>& urls);
 
-void compute_hog(const vector<string>& urls, vector<vector<float> >& features);
+void compute_hog(const vector<string> & urls, vector<vector<float> > & features, vector<float> & labels, float label);
 
-void train(vector<vector<float> > & features, vector<float> & labels, string & save_dir);
+//void compute_hog(const vector<string>& urls, vector<vector<float> >& features);
+
+void train(vector<vector<float> > & features, vector<float> & labels, string save_dir);
 
 void mean_stddev(vector<vector<float> >& features);
 
-Mat get_hogdescriptor_visu(Mat& origImg, vector<float> feature);
+//Mat get_hogdescriptor_visu(Mat& origImg, vector<float> feature);
 
 #endif // _DETECT_UTIL_HPP_
