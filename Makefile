@@ -12,17 +12,17 @@ LIBDIRS = -L$(OPENCV_PREFIX)/lib -Wl,-rpath,$(OPENCV_PREFIX)/lib \
           -L/lib64
 CC=g++
 CFLAGS=-c -Wall -O3
-SOURCES=  detect_util.cpp svm.cpp detect.cpp 
-OBJECTS=$(SOURCES:.cpp=.o)
-EXECUTABLE=FaceFeatureDetect
+DETECT =  detect_util.cpp svm.cpp detect.cpp
 
-all: $(SOURCES) $(EXECUTABLE)
+all: FaceFeatureDetect
+
 clean: 
 	rm -f *.o
 	rm FaceFeatureDetect
-    
-$(EXECUTABLE): $(OBJECTS) 
-	$(CC) $(OBJECTS) $(LIBDIRS) $(LIBS) -o $@
+	rm Convert
+
+FaceFeatureDetect: $(DETECT:.cpp=.o) 
+	$(CC) $(DETECT:.cpp=.o) $(LIBDIRS) $(LIBS) -o $@
 
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) $< -o $@

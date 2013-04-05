@@ -21,17 +21,16 @@ using namespace std;
 using namespace cv;
 namespace fs = boost::filesystem;
 
-void extract_line(const string& line, vector<float>& values) {
-  vector<string> tokens;
-  istringstream iss(line);
-  tokens.clear();
-  copy(istream_iterator<string>(iss),
-       istream_iterator<string>(),
-       back_inserter<vector<string> >(tokens));
-  values.clear();
-  values.reserve(tokens.size());
-  for (unsigned int i = 0; i < tokens.size(); i++)
-    values.push_back(atof(tokens[i].c_str()));
+void retrieve_hog(const string & line, vector<float> & values) {
+  ifstream fi(line.c_str(), ifstream::in);
+  string feats;
+  while (getline(fi, feats)) {
+    stringstream iss(feats);
+    string v;
+    while (getline(iss, v, ' ')) {
+      values.push_back(atof(v.c_str()));
+    }
+  }
 }
 
 void loadPointsFile(string path, vector<pair<Point2f, Point2f> > & canonicalPoints) {
@@ -83,10 +82,12 @@ void compute_hog(const vector<string> & urls, vector<vector<float> > & features,
     Mat img;
     img = imread(urls[i].c_str(), 1);
 
-    // I do not think I have to convert the image to
+
+    // I am not sure I have to convert the image to
     // gray scale to compute the hog feauture
-    // if (img.channels() == 3)
-    // cvtColor(img, img, CV_BGR2GRAY);
+    if (img.channels() == 3)
+      cvtColor(img, img, CV_BGR2GRAY);
+
     if (img.data == NULL)
       continue;
 
@@ -158,7 +159,11 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   string model_file = (path / "model.t").string();
   string ms_file = (path / "ms_file.txt").string();
   vector<float> mean, stddev;
+
   standardize(features, mean, stddev);
+
+  cout << "finish standardize" << endl;
+  
   svm_parameter param;
   param.svm_type = C_SVC;
   param.kernel_type = LINEAR;
@@ -175,6 +180,8 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   param.nr_weight = 0;
   param.weight_label = NULL;
   param.weight = NULL;
+
+  cout << "finish constructing svm_parameter" << endl;
 
   svm_problem prob;
   prob.l = (int)features.size();
@@ -208,15 +215,15 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   file.open(ms_file.c_str(), ios::out);
   file << mean[0];
   for (unsigned int i = 1; i < mean.size(); i++)
-    file << mean[i] << " ";
+  file << mean[i] << " ";
   file << endl;
-
+  
   file << stddev[0];
   for (unsigned int i = 1; i < stddev.size(); i++)
-    file << stddev[i] << " ";
+  file << stddev[i] << " ";
   file << endl;
   file.close();
-
+  
   cout << "Finished Train" << endl;
 }
 
@@ -241,12 +248,20 @@ double predict_hog(string hog_path, string model_dir) {
   string line;
   ifstream fi(hog_path.c_str(), ifstream::in);
   getline(fi, line);
-  extract_line(line, feature);
+  retrieve_hog(line, feature);
+
+  
+  string v;
   ifstream fms(ms_file.c_str(), ifstream::in);
   getline(fms, line);
-  extract_line(line, mean);
+  stringstream ism(line);
+  while (getline(ism, v, ' '))
+    mean.push_back(atof(v.c_str()));
+  
   getline(fms, line);
-  extract_line(line, stddev);
+  stringstream iss(line);
+  while (getline(iss, v, ' '))
+    stddev.push_back(atof(v.c_str()));
 
   svm_model * model = svm_load_model(model_file.c_str());
   for (unsigned int i = 0; i < feature.size(); i++) {

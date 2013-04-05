@@ -15,5 +15,12 @@
 # Images
 *.jpg
 
+# Text File
+*.txt
+
 # The executeble
 FaceFeatureDetect
+
+# Some Dirs
+hog-samples/
+test/

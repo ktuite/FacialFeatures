@@ -10,7 +10,7 @@
 using namespace std;
 using namespace cv;
 
-void extract_line(const string & line, vector<float> & values);
+void retrieve_hog(const string & line, vector<float> & values);
 
 void loadPointsFile(string path, vector<pair<Point2f, Point2f> > & canonicalPoints);
 

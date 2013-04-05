@@ -16,14 +16,14 @@ int main(int argc, char** argv) {
     ifstream fp(argv[2], ifstream::in);
     while (getline(fp, line)) {
       vector<float> tmp;
-      extract_line(line, tmp);
+      retrieve_hog(line, tmp);
       features.push_back(tmp);
       labels.push_back(1);
     }
     ifstream fn(argv[3], ifstream::in);
     while (getline(fn, line)) {
       vector<float> tmp;
-      extract_line(line, tmp);
+      retrieve_hog(line, tmp);
       features.push_back(tmp);
       labels.push_back(0);
     }
