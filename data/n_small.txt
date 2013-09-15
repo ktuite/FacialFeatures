@@ -1,1 +1,0 @@
-./train/negative/143.jpg

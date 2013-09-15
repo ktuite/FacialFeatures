@@ -2484,6 +2484,7 @@ double svm_predict_values(const svm_model *model, const svm_node *x, double* dec
 	   model->param.svm_type == EPSILON_SVR ||
 	   model->param.svm_type == NU_SVR)
 	{
+		printf("[svm_predict_values] case 1\n");
 		double *sv_coef = model->sv_coef[0];
 		double sum = 0;
 		for(i=0;i<model->l;i++)
@@ -2502,8 +2503,9 @@ double svm_predict_values(const svm_model *model, const svm_node *x, double* dec
 		int l = model->l;
 		
 		double *kvalue = Malloc(double,l);
-		for(i=0;i<l;i++)
+		for(i=0;i<l;i++){
 			kvalue[i] = Kernel::k_function(x,model->SV[i],model->param);
+		}
 
 		int *start = Malloc(int,nr_class);
 		start[0] = 0;
@@ -2527,18 +2529,22 @@ double svm_predict_values(const svm_model *model, const svm_node *x, double* dec
 				int k;
 				double *coef1 = model->sv_coef[j-1];
 				double *coef2 = model->sv_coef[i];
-				for(k=0;k<ci;k++)
+				for(k=0;k<ci;k++) {
 					sum += coef1[si+k] * kvalue[si+k];
-				for(k=0;k<cj;k++)
+				}
+				for(k=0;k<cj;k++) {
 					sum += coef2[sj+k] * kvalue[sj+k];
+				}
 				sum -= model->rho[p];
 				dec_values[p] = sum;
+
 
 				if(dec_values[p] > 0)
 					++vote[i];
 				else
 					++vote[j];
 				p++;
+
 			}
 
 		int vote_max_idx = 0;

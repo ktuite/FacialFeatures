@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cmath>
+#include <sys/time.h>
 #include <opencv2/video/tracking.hpp>
 #include <opencv2/objdetect/objdetect.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -21,15 +22,28 @@ using namespace std;
 using namespace cv;
 namespace fs = boost::filesystem;
 
-void retrieve_hog(const string & line, vector<float> & values) {
-  ifstream fi(line.c_str(), ifstream::in);
-  string feats;
-  while (getline(fi, feats)) {
-    stringstream iss(feats);
-    string v;
-    while (getline(iss, v, ' ')) {
-      values.push_back(atof(v.c_str()));
-    }
+
+typedef unsigned long long timestamp_t;
+
+static timestamp_t
+get_timestamp ()
+{
+  struct timeval now;
+  gettimeofday (&now, NULL);
+  return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+}
+
+void extract_line(const string& line, vector<float>& values) {
+  vector<string> tokens;
+  istringstream iss(line);
+  tokens.clear();
+  copy(istream_iterator<string>(iss),
+       istream_iterator<string>(),
+       back_inserter<vector<string> >(tokens));
+  values.clear();
+  values.reserve(tokens.size());
+  for (unsigned int i = 0; i < tokens.size(); i++){
+    values.push_back(atof(tokens[i].c_str()));
   }
 }
 
@@ -82,12 +96,10 @@ void compute_hog(const vector<string> & urls, vector<vector<float> > & features,
     Mat img;
     img = imread(urls[i].c_str(), 1);
 
-
-    // I am not sure I have to convert the image to
+    // I do not think I have to convert the image to
     // gray scale to compute the hog feauture
-    if (img.channels() == 3)
-      cvtColor(img, img, CV_BGR2GRAY);
-
+    // if (img.channels() == 3)
+    // cvtColor(img, img, CV_BGR2GRAY);
     if (img.data == NULL)
       continue;
 
@@ -159,11 +171,7 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   string model_file = (path / "model.t").string();
   string ms_file = (path / "ms_file.txt").string();
   vector<float> mean, stddev;
-
   standardize(features, mean, stddev);
-
-  cout << "finish standardize" << endl;
-  
   svm_parameter param;
   param.svm_type = C_SVC;
   param.kernel_type = LINEAR;
@@ -180,8 +188,6 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   param.nr_weight = 0;
   param.weight_label = NULL;
   param.weight = NULL;
-
-  cout << "finish constructing svm_parameter" << endl;
 
   svm_problem prob;
   prob.l = (int)features.size();
@@ -215,15 +221,15 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   file.open(ms_file.c_str(), ios::out);
   file << mean[0];
   for (unsigned int i = 1; i < mean.size(); i++)
-  file << mean[i] << " ";
+    file << " " << mean[i];
   file << endl;
-  
+
   file << stddev[0];
   for (unsigned int i = 1; i < stddev.size(); i++)
-  file << stddev[i] << " ";
+    file << " " << stddev[i];
   file << endl;
   file.close();
-  
+
   cout << "Finished Train" << endl;
 }
 
@@ -244,35 +250,44 @@ double predict_hog(string hog_path, string model_dir) {
   path /= model_dir;
   string model_file = (path / "model.t").string();
   string ms_file = (path / "ms_file.txt").string();
+
+  timestamp_t t0_l = get_timestamp();
+  svm_model * model = svm_load_model(model_file.c_str());
+  timestamp_t t1_l = get_timestamp();
+  double l_secs = (t1_l - t0_l) / 1000000.0L;
+  //printf("LOADING model time: %f s\n", l_secs);
+  
+  timestamp_t t0_t = get_timestamp();
   vector<float> feature, mean, stddev;
   string line;
   ifstream fi(hog_path.c_str(), ifstream::in);
   getline(fi, line);
-  retrieve_hog(line, feature);
-
-  
-  string v;
+  extract_line(line, feature);
   ifstream fms(ms_file.c_str(), ifstream::in);
   getline(fms, line);
-  stringstream ism(line);
-  while (getline(ism, v, ' '))
-    mean.push_back(atof(v.c_str()));
-  
+  extract_line(line, mean);
   getline(fms, line);
-  stringstream iss(line);
-  while (getline(iss, v, ' '))
-    stddev.push_back(atof(v.c_str()));
+  extract_line(line, stddev);
 
-  svm_model * model = svm_load_model(model_file.c_str());
   for (unsigned int i = 0; i < feature.size(); i++) {
     if (stddev[i] != 0)
       feature[i] = (feature[i] - mean[i]) / (2 * stddev[i]);
   }
+
   svm_node * tmp = new svm_node[feature.size() + 1];
+  timestamp_t t1_t = get_timestamp();
+  double t_secs = (t1_t - t0_t) / 1000000.0L;
+  //printf("LOADING NODE time: %f s\n", t_secs);
+
   for (unsigned int i = 0; i < feature.size(); i++) {
     tmp[i].index = (int)i + 1;
     tmp[i].value = (double)(feature[i]);
   }
   tmp[feature.size()].index = -1;
-  return svm_predict(model, tmp);
+  timestamp_t t0 = get_timestamp();
+  double pred = svm_predict(model, tmp);
+  timestamp_t t1 = get_timestamp();
+  double secs = (t1 - t0) / 1000000.0L;
+  //printf("PREDICTION took %f s\n", secs);
+  return pred;
 }
