@@ -11,10 +11,11 @@ FacialFeatures
 	 ./FaceFeatureDetect -p  <hog_path> <model_directory>
 
 
-I got two sample for running the second predict mode, feel free to try it: <br />
-  ./FaceFeatureDetect -t data/exp1_pos.hog data/exp1_neg.hog data/exp1
-  ./FaceFeatureDetect -p data/pos.hog data/exp1 (outputs 1)
-  ./FaceFeatureDetect -p data/neg.hog data/exp1 (outputs 0)
+Sampled data provided for training and testing: <br />
+
+	 ./FaceFeatureDetect -t data/exp1_pos.hog data/exp1_neg.hog data/exp1
+	 ./FaceFeatureDetect -p data/pos.hog data/exp1 (outputs 1)
+	 ./FaceFeatureDetect -p data/neg.hog data/exp1 (outputs 0)
 
 NOTE: <br />
 	1. The train mode will not output anything. <br />
