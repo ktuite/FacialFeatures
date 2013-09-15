@@ -291,3 +291,42 @@ double predict_hog(string hog_path, string model_dir) {
   //printf("PREDICTION took %f s\n", secs);
   return pred;
 }
+
+double predict_hog_on_loaded_model(string hog_path, char * model_dir, svm_model * model) {
+  char ms_file[256];
+  sprintf(ms_file, "%s/ms_file.txt", model_dir);
+  
+  timestamp_t t0_t = get_timestamp();
+  vector<float> feature, mean, stddev;
+  string line;
+  ifstream fi(hog_path.c_str(), ifstream::in);
+  getline(fi, line);
+  extract_line(line, feature);
+  ifstream fms(ms_file, ifstream::in);
+  getline(fms, line);
+  extract_line(line, mean);
+  getline(fms, line);
+  extract_line(line, stddev);
+
+  for (unsigned int i = 0; i < feature.size(); i++) {
+    if (stddev[i] != 0)
+      feature[i] = (feature[i] - mean[i]) / (2 * stddev[i]);
+  }
+
+  svm_node * tmp = new svm_node[feature.size() + 1];
+  timestamp_t t1_t = get_timestamp();
+  double t_secs = (t1_t - t0_t) / 1000000.0L;
+  //printf("LOADING NODE time: %f s\n", t_secs);
+
+  for (unsigned int i = 0; i < feature.size(); i++) {
+    tmp[i].index = (int)i + 1;
+    tmp[i].value = (double)(feature[i]);
+  }
+  tmp[feature.size()].index = -1;
+  timestamp_t t0 = get_timestamp();
+  double pred = svm_predict(model, tmp);
+  timestamp_t t1 = get_timestamp();
+  double secs = (t1 - t0) / 1000000.0L;
+  //printf("PREDICTION took %f s\n", secs);
+  return pred;
+}

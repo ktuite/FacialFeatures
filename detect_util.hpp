@@ -20,6 +20,8 @@ void retrieve_data(string positive_urls, string negative_urls, vector<vector<flo
 
 double predict_hog(string path, string model_dir);
 
+double predict_hog_on_loaded_model(string path, char * model_dir, svm_model * model);
+
 void get_urls(const string& path, vector<string>& urls);
 
 void compute_hog(const vector<string> & urls, vector<vector<float> > & features, vector<float> & labels, float label);
