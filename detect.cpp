@@ -42,19 +42,36 @@ int main(int argc, char** argv) {
     vector<vector<float> > features;
     vector<float> labels;
     string line;
+    string hog_file;
     ifstream fp(argv[2], ifstream::in);
-    while (getline(fp, line)) {
-      vector<float> tmp;
-      extract_line(line, tmp);
-      features.push_back(tmp);
-      labels.push_back(1);
+    while (getline(fp, hog_file)) {
+      ifstream hp(hog_file.c_str(), ifstream::in);
+      if (getline(hp, line)){
+        cout << "file found " << endl;
+        vector<float> tmp;
+        extract_line(line, tmp);
+        features.push_back(tmp);
+        labels.push_back(1);
+      }
+      else {
+        cout << "file not found: (pos)" << hog_file << endl;
+      }
+      hp.close();
     }
     ifstream fn(argv[3], ifstream::in);
-    while (getline(fn, line)) {
-      vector<float> tmp;
-      extract_line(line, tmp);
-      features.push_back(tmp);
-      labels.push_back(0);
+    while (getline(fn, hog_file)) {
+      ifstream hp(hog_file.c_str(), ifstream::in);
+      if (getline(hp, line)){
+        cout << "file found " << endl;
+        vector<float> tmp;
+        extract_line(line, tmp);
+        features.push_back(tmp);
+        labels.push_back(0);
+      }
+      else {
+        cout << "file not found: (neg) " << hog_file << endl;
+      }
+      hp.close();
     }
     train(features, labels, argv[4]);
   } else if (strcmp(argv[1], "-p") == 0) {
