@@ -183,7 +183,7 @@ void train(vector<vector<float> >& features, vector<float>& labels, string save_
   param.eps = 1e-3;
   param.p = 0.1;
   param.shrinking = 1;
-  param.probability = 0;
+  param.probability = 1;
   param.nr_weight = 0;
   param.weight_label = NULL;
   param.weight = NULL;

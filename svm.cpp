@@ -2569,8 +2569,11 @@ double svm_predict(const svm_model *model, const svm_node *x)
 		dec_values = Malloc(double, 1);
 	else 
 		dec_values = Malloc(double, nr_class*(nr_class-1)/2);
-	double pred_result = svm_predict_values(model, x, dec_values);
+	double pred_result = svm_predict_probability(model, x, dec_values);
 	free(dec_values);
+
+	printf("[inside svm_predict] svm_predict = %f\n\n", pred_result);
+
 	return pred_result;
 }
 
