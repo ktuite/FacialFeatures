@@ -23,18 +23,26 @@ get_timestamp ()
   return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
 }
 
-void printUsage(){
+void printUsage(char *prog_name){
   printf("USAGE:\n");
-  printf("\t ./FaceFeatureDetect -t <positive_urls> <negative_urls> <model_save_directory> \n");
-  printf("\t ./FaceFeatureDetect -p <hog_path> <model_directory> \n");
-  printf("\t ./FaceFeatureDetect -i <model_directory> [for interactive mode]\n\n");
+  printf("\t %s -t <positive_urls> <negative_urls> <model_save_directory> \n", prog_name);
+  printf("\t %s -p <hog_path> <model_directory> \n", prog_name);
+  printf("\t %s -i <model_directory> [for interactive mode]\n", prog_name);
+  printf("\tNOTE: add --probability at end to print probability instead of 0/1 classification\n\n");
   exit(0);
 }
 
 int main(int argc, char** argv) {
   if (argc < 2){
-    printUsage();
+    printUsage(argv[0]);
     exit(0);
+  }
+
+  bool print_probability = false;
+  if (argc >= 5){
+    if (strcmp(argv[4], "--probability") == 0){
+      print_probability = true;
+    }
   }
 
   timestamp_t t0 = get_timestamp();
@@ -76,7 +84,19 @@ int main(int argc, char** argv) {
     train(features, labels, argv[4]);
   } else if (strcmp(argv[1], "-p") == 0) {
     timestamp_t t0_p = get_timestamp();
-    cout << predict_hog(argv[2], argv[3]) << endl;
+
+    double probability = predict_hog(argv[2], argv[3]);
+    if (print_probability){
+      cout << probability << endl;
+    }
+    else {
+      if (probability < 0.5){
+        cout << 0 << endl;
+      }
+      else {
+        cout << 1 << endl; 
+      }
+    }
     timestamp_t t1_p = get_timestamp();
     double p_secs = (t1_p - t0_p) / 1000000.0L;
     //printf("PREDICTION time: %f s\n", p_secs);
@@ -93,7 +113,19 @@ int main(int argc, char** argv) {
       //printf("THE LINE: --%s--\n", hog_file);
       timestamp_t t0_p = get_timestamp();
 
-      cout << predict_hog_on_loaded_model(hog_file, model_dir, model) << endl;
+      double probability = predict_hog_on_loaded_model(hog_file, model_dir, model);
+      if (print_probability){
+        cout << probability << endl;
+      }
+      else {
+        if (probability < 0.5){
+          cout << 0 << endl;
+        }
+        else {
+          cout << 1 << endl; 
+        }
+      }
+
       cout.flush();
 
       timestamp_t t1_p = get_timestamp();
@@ -103,7 +135,7 @@ int main(int argc, char** argv) {
     }
   }
   else {
-    printUsage();
+    printUsage(argv[0]);
   }
   timestamp_t t1 = get_timestamp();
   double secs = (t1 - t0) / 1000000.0L;
