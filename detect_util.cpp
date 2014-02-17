@@ -162,8 +162,9 @@ void standardize(vector<vector<float> > & features, vector<float> & mean, vector
 }
 
 void train(vector<vector<float> >& features, vector<float>& labels, string save_dir) {
-  fs::path path(fs::current_path());
-  path /= save_dir;
+  //fs::path path(fs::current_path());
+  //path /= save_dir;
+  fs::path path(save_dir);
   if (!fs::exists(path)) {
     fs::create_directory(path);
   }
@@ -245,8 +246,9 @@ void retrieve_data(string p_file, string n_file, vector<vector<float> > & featur
 }
 
 double predict_hog(string hog_path, string model_dir) {
-  fs::path path(fs::current_path());
-  path /= model_dir;
+  //fs::path path(fs::current_path());
+  //path /= model_dir;
+  fs::path path(model_dir);
   string model_file = (path / "model.t").string();
   string ms_file = (path / "ms_file.txt").string();
 

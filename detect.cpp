@@ -39,8 +39,13 @@ int main(int argc, char** argv) {
   }
 
   bool print_probability = false;
-  if (argc >= 5){
+  if (argc == 5){
     if (strcmp(argv[4], "--probability") == 0){
+      print_probability = true;
+    }
+  }
+  else if (argc == 4){
+    if (strcmp(argv[3], "--probability") == 0){
       print_probability = true;
     }
   }
